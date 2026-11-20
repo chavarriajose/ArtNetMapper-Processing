@@ -1,6 +1,9 @@
-// Draws the lighting content into an offscreen buffer and samples from there,
-// while the window shows a small preview plus controls.
-// Useful with keystone, shaders, or when the window is a UI.
+// OffscreenSource: the lights read an offscreen buffer instead of the window.
+//
+// The lighting content is drawn into a PGraphics; the window shows a preview and
+// a control. Useful with keystone, shaders, or when the window is a UI.
+// Fixture positions are in the buffer's pixels. Two RGBW pars at DMX 1 and 5.
+// Mouse Y: global brightness of the canvas colors.
 
 import artnetmapper.*;
 
@@ -11,16 +14,18 @@ void setup() {
   size(600, 400);
   lights = createGraphics(300, 200);
 
-  String[] nodes = ArtNetMapper.list();
-  dmx = new ArtNetMapper(this, nodes[0]);          // no node? type an IP, e.g. "2.0.0.1"
-  dmx.source(lights);                        // sample the buffer, not the window
-  FixtureType rgbw = dmx.type("r, g, b, w");
-  dmx.fixture(rgbw, 1).at(75, 100);          // coordinates are in the buffer
-  dmx.fixture(rgbw, 5).at(225, 100);
-  dmx.showLocations(false);                  // markers would land on the window, not the buffer
+  String[] nodes = ArtNetMapper.list();           // prints the nodes found
+  dmx = new ArtNetMapper(this, nodes[0]);          // no node? use "127.0.0.1"
+  dmx.source(lights);                              // read the buffer, not the window
+  dmx.fixture(4, 1).setPos(75, 100).colorChannels(0, 1, 2, 3);
+  dmx.fixture(4, 5).setPos(225, 100).colorChannels(0, 1, 2, 3);
+  dmx.showLocations(false);                        // markers would land on the window, not the buffer
 }
 
 void draw() {
+  float level = map(mouseY, 0, height, 1, 0);
+  dmx.brightness(level);
+
   lights.beginDraw();
   lights.background(0);
   lights.noStroke();
@@ -29,8 +34,7 @@ void draw() {
   lights.endDraw();
 
   background(40);
-  image(lights, 20, 20);                     // preview
+  image(lights, 20, 20);                           // preview
   fill(255);
-  text("brightness: " + nf(map(mouseY, 0, height, 1, 0), 1, 2) + " (move mouse up/down)", 20, 260);
-  dmx.brightness(map(mouseY, 0, height, 1, 0));
+  text("brightness: " + nf(level, 1, 2) + " (move the mouse up and down)", 20, 260);
 }

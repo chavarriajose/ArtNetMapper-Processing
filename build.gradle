@@ -2,8 +2,20 @@ plugins {
     id 'java'
 }
 
+// Single source for the version: library.properties (prettyVersion).
+// ArtNetMapper.VERSION must match; VersionTest checks it.
+def libraryProps = new Properties()
+file('library.properties').withInputStream { libraryProps.load(it) }
+
 group = 'artnetmapper'
-version = '0.1.0'
+version = libraryProps.getProperty('prettyVersion')
+
+// Processing's core jar (compile-only). Override with -PprocessingCore=... if Processing lives elsewhere.
+def processingCore = findProperty('processingCore')
+        ?: '/Applications/Processing.app/Contents/app/resources/core/library/core-4.5.7.jar'
+// Where installLibrary puts the finished library. Override in ~/.gradle/gradle.properties.
+def sketchbookLibraries = findProperty('sketchbookLibraries')
+        ?: "${System.getProperty('user.home')}/Documents/Processing/libraries"
 
 repositories {
     mavenCentral()
@@ -19,15 +31,16 @@ dependencies {
 tasks.withType(JavaCompile).configureEach {
     options.release = 17
     options.encoding = 'UTF-8'
-    options.compilerArgs += ['-Xlint:all', '-Xlint:-serial', '-Xlint:-this-escape']
+    // Lint flags valid on JDK 17 and newer. -parameters keeps parameter names for printPublicMethodsFor().
+    options.compilerArgs += ['-Xlint:deprecation', '-Xlint:unchecked', '-Xlint:rawtypes', '-parameters']
 }
 
 test {
     useJUnitPlatform()
+    systemProperty 'artnetmapper.version', version
     testLogging {
         events 'failed'
-        exceptionFormat 'full'
-        showStandardStreams = false
+        exceptionFormat = 'full'
     }
 }
 
@@ -36,24 +49,47 @@ jar {
     archiveVersion = ''
 }
 
+javadoc {
+    classpath += files(processingCore)
+    options.encoding = 'UTF-8'
+    options.windowTitle = 'ArtNetMapper reference'
+    options.docTitle = 'ArtNetMapper ' + project.version
+    options.addBooleanOption('Xdoclint:none', true)
+    options.quiet()
+}
+
+// Copies the examples into build/ and appends the method list to each, so the
+// tracked examples/ folder is never modified by a build.
+def generatedExamples = layout.buildDirectory.dir('generated/examples')
+tasks.register('exampleDocs', JavaExec) {
+    group = 'processing'
+    description = 'Copies the examples and appends the method list comment to each.'
+    dependsOn classes, testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'artnetmapper.ExampleDocs'
+    inputs.dir('examples')
+    inputs.files(sourceSets.main.output)
+    outputs.dir(generatedExamples)
+    args file('examples').absolutePath, generatedExamples.get().asFile.absolutePath
+}
+
 // Processing library folder layout:
-// ArtNetMapper/{library.properties, library/ArtNetMapper.jar, examples/, src/}
+// ArtNetMapper/{library.properties, LICENSE, library/ArtNetMapper.jar, examples/, reference/, src/}
 tasks.register('buildLibrary', Sync) {
     group = 'processing'
     description = 'Assembles the Processing library folder in build/library/ArtNetMapper.'
-    dependsOn jar
     into layout.buildDirectory.dir('library/ArtNetMapper')
     from('library.properties')
     from('LICENSE')
-    into('library') { from jar.archiveFile }
-    into('examples') { from 'examples' }
+    into('library') { from jar }
+    into('examples') { from tasks.named('exampleDocs') }
+    into('reference') { from javadoc }
     into('src') { from 'src/main/java' }
 }
 
 tasks.register('installLibrary', Sync) {
     group = 'processing'
     description = 'Copies the library into the Processing sketchbook libraries folder.'
-    dependsOn 'buildLibrary'
-    from layout.buildDirectory.dir('library/ArtNetMapper')
+    from tasks.named('buildLibrary')
     into "${sketchbookLibraries}/ArtNetMapper"
 }

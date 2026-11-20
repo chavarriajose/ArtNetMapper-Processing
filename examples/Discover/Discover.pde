@@ -1,7 +1,12 @@
-// Lists the Art-Net nodes connected to this computer.
-// Nodes that answer ArtPoll are labelled (ArtPoll).
-// USB nodes that don't answer are found by the interface scan and labelled (guessed).
-// Use nodes[0] in your sketch, or copy another IP from the console.
+// Discover: lists the Art-Net nodes connected to this computer.
+//
+// The console shows a numbered list, like Serial.list():
+//   [0] "2.0.0.1"  Electroconcept USB NODE  (answered ArtPoll, en6)
+// Nodes that don't answer ArtPoll are found by the interface scan instead:
+//   [0] "2.0.0.1"  (found by interface scan, no ArtPoll reply, en6)
+// In your sketch, use nodes[0], or copy another IP from the list.
+//
+// Click the window to scan again.
 
 import artnetmapper.*;
 

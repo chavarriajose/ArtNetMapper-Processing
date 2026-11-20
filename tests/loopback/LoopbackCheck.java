@@ -54,7 +54,7 @@ public class LoopbackCheck {
 
     Map<Integer, int[]> expected = Map.of(
         0, new int[] {0, 0, 0, 255, 255, 150, 50, 0, 50, 77},
-        1, new int[] {255, 255, 255, 200, 100, 50, 200, 100, 50},
+        1, new int[] {255, 255, 255, 1, 2, 3, 200, 100, 50},
         2, new int[] {255, 255, 255, 200, 100, 50, 0, 0, 255, 0, 255, 0});
 
     for (var e : byU.entrySet()) {

@@ -1,7 +1,10 @@
-// A virtual 30-pixel RGB strip laid along a line.
-// The markers show what each pixel samples. Without a node, replace nodes[0]
-// with any IP (e.g. "2.0.0.1") to run it without hardware.
-// Drag the mouse to move the strip's end point.
+// Strip: a 30-pixel RGB strip (3 channels per pixel) laid along a line.
+//
+// Set your strip to DMX address 1 (universe 0), or change the numbers below.
+// Argument order: strip(channelsPerPixel, address, pixels)
+//             or  strip(channelsPerPixel, universe, address, pixels)
+//
+// Drag the mouse to move the strip's end point. Pixel 0 is always green (set by hand).
 
 import artnetmapper.*;
 
@@ -10,17 +13,18 @@ Fixture strip;
 
 void setup() {
   size(600, 400);
-  String[] nodes = ArtNetMapper.list();
-  dmx = new ArtNetMapper(this, nodes[0]);          // no node? type an IP, e.g. "2.0.0.1"
-  strip = dmx.strip(dmx.type("r, g, b"), 1, 9, 30)   // universe 1, channel 9, 30 pixels
-             .line(50, 200, 550, 200);
+  String[] nodes = ArtNetMapper.list();           // prints the nodes found
+  dmx = new ArtNetMapper(this, nodes[0]);          // no node? use "127.0.0.1"
+  strip = dmx.strip(3, 1, 30);                     // 3 channels per pixel, address 1, 30 pixels
+  strip.line(50, 200, 550, 200);
+  strip.colorChannels(0, 1, 2);                    // r, g, b of every pixel follow the canvas
+  strip.pixel(0).setVals(0, 255, 0);               // one pixel set by hand
 }
 
 void draw() {
   background(0);
   noStroke();
-  // a white blob that bounces along the strip
-  float x = width / 2 + sin(frameCount * 0.03) * 250;
+  float x = width / 2 + sin(frameCount * 0.03) * 250;   // a blob bouncing along the strip
   for (int r = 120; r > 0; r -= 4) {
     fill(255 - r * 2, 80 + r, 255, 40);
     ellipse(x, 200, r * 2, r);

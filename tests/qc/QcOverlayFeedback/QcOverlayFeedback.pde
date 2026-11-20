@@ -7,11 +7,11 @@ void setup() {
   background(255, 0, 0);
   dmx = new ArtNetMapper(this, "127.0.0.1");
   dmx.gamma(1);
-  dmx.fixture(dmx.type("r, g, b"), 1).at(100, 100).sampleRadius(6);
+  dmx.fixture(3, 1).colorChannels(0, 1, 2).setPos(100, 100).sampleRadius(6);
   println("QC density=" + pixelDensity + " pixelWidth=" + pixelWidth);
 }
 void draw() {
-  int[] c = dmx.channels(0);
+  int[] c = dmx.getUniverse(0);
   if (frameCount == 2 || frameCount == 10 || frameCount == 30) println("QC frame " + frameCount + ": " + c[0] + "," + c[1] + "," + c[2]);
   if (frameCount == 30) exit();
 }

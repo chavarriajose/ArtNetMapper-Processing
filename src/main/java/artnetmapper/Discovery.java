@@ -54,12 +54,13 @@ final class Discovery {
       this.artPoll = artPoll;
     }
 
+    /** e.g. {@code Electroconcept USB NODE  (answered ArtPoll, en6)}. */
     String label() {
       StringBuilder s = new StringBuilder();
       if (name != null && !name.isEmpty()) s.append(name).append("  ");
-      s.append(artPoll ? "(ArtPoll)" : "(no ArtPoll reply, guessed)");
-      if (iface != null) s.append(" on ").append(iface);
-      return s.toString();
+      s.append(artPoll ? "(answered ArtPoll" : "(found by interface scan, no ArtPoll reply");
+      if (iface != null) s.append(", ").append(iface);
+      return s.append(')').toString();
     }
   }
 
@@ -99,13 +100,14 @@ final class Discovery {
     return out;
   }
 
-  /** True if ip is on the same subnet as a local IPv4 address. */
+  /**
+   * The local interface whose subnet contains ip (a "loopback" entry for 127.x),
+   * or null if no connected network contains it.
+   */
   static LocalAddr interfaceFor(String ip) {
     InetAddress target = parse(ip);
-    if (target == null) return null;
-    if (target.isLoopbackAddress()) return new LocalAddr("loopback", target, null, 8);
-    for (LocalAddr la : localAddresses()) if (la.contains(target)) return la;
-    return null;
+    if (target != null && target.isLoopbackAddress()) return new LocalAddr("loopback", target, null, 8);
+    return interfaceFor(ip, localAddresses());
   }
 
   static boolean sameSubnet(InetAddress a, InetAddress b, int prefix) {
@@ -140,7 +142,7 @@ final class Discovery {
     scanner.setDaemon(true);
     scanner.start();
 
-    long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs);
+    final long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs);
     Map<String, Node> polled = new LinkedHashMap<>();
     try (DatagramSocket sock = openPollSocket()) {
       sock.setBroadcast(true);
@@ -175,12 +177,14 @@ final class Discovery {
         polled.put(ip, new Node(ip, name, la == null ? null : la.iface, true));
       }
     } catch (IOException e) {
-      System.err.println("ArtNetMapper: ArtPoll failed: " + e.getMessage());
+      System.out.println("ArtNetMapper: warning: ArtPoll could not be sent (" + e.getMessage()
+          + "). Only the interface scan was used.");
     }
 
     try {
-      long left = TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime());
-      scanner.join(Math.max(200, left)); // the scan's own commands time out at 2 s at most
+      // ArtPoll listening is over; give the interface scan up to 2 s more to finish its
+      // commands (arp, netstat, ipconfig, ping each time out on their own).
+      scanner.join(2000);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
     }
@@ -319,6 +323,7 @@ final class Discovery {
   static String run(long timeoutMs, String... cmd) {
     try {
       Process p = new ProcessBuilder(cmd).redirectErrorStream(true).start();
+      p.getOutputStream().close();
       StringBuilder sb = new StringBuilder();
       Thread reader = new Thread(() -> {
         try (BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {

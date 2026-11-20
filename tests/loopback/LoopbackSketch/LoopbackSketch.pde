@@ -10,26 +10,24 @@ void setup() {
   size(200, 100);
   frameRate(60);
   dmx = new ArtNetMapper(this, "127.0.0.1");
-  dmx.gamma(1);                                   // exact values for checking
+  dmx.gamma(1);                                     // exact values for checking
 
-  FixtureType rgbw = dmx.type("r, g, b, w");
-  FixtureType full = dmx.type("dim=255, r, g, b, w, strobe=0");
-  FixtureType rgb  = dmx.type("r, g, b");
-
-  dmx.fixture(rgbw, 1).at(50, 25);                // TL white -> 0,0,0,255
-  dmx.fixture(full, 5).at(150, 25).set("strobe", 77); // TR -> 255,150,50,0,50,77
-  dmx.strip(rgb, 1, 1, 3).line(10, 25, 190, 25);  // u1: white, TR, TR
-  dmx.matrix(rgb, 2, 1, 2, 2).rect(0, 0, 200, 100)
+  dmx.fixture(4, 1).setPos(50, 25).colorChannels(0, 1, 2, 3);   // TL white -> 0,0,0,255
+  Fixture p8 = dmx.fixture(6, 5).setPos(150, 25).colorChannels(1, 2, 3, 4); // TR
+  p8.setVal(0, 255).setVal(5, 77);                  // dimmer, strobe -> 255,150,50,0,50,77
+  Fixture s = dmx.strip(3, 1, 1, 3).line(10, 25, 190, 25).colorChannels(0, 1, 2); // u1
+  s.pixel(1).setVals(1, 2, 3);                      // hard-coded middle pixel
+  dmx.matrix(3, 2, 1, 2, 2).rect(0, 0, 200, 100).colorChannels(0, 1, 2)
      .wiring(ArtNetMapper.SERPENTINE, ArtNetMapper.TOP_LEFT, ArtNetMapper.ROWS); // u2
-  dmx.fixture(rgb, 3, 1).at(195, 95);             // u3: animated, drives the send rate
+  dmx.fixture(3, 3, 1).setPos(195, 95).colorChannels(0, 1, 2);  // u3: animated, drives the send rate
 }
 
 void draw() {
   noStroke();
-  fill(255, 255, 255); rect(0, 0, 100, 50);       // TL white
-  fill(200, 100, 50);  rect(100, 0, 100, 50);     // TR
-  fill(0, 255, 0);     rect(0, 50, 100, 50);      // BL green
-  fill(0, 0, 255);     rect(100, 50, 100, 50);    // BR blue
+  fill(255, 255, 255); rect(0, 0, 100, 50);         // TL white
+  fill(200, 100, 50);  rect(100, 0, 100, 50);       // TR
+  fill(0, 255, 0);     rect(0, 50, 100, 50);        // BL green
+  fill(0, 0, 255);     rect(100, 50, 100, 50);      // BR blue
   fill(1 + frameCount % 200, 0, 0); rect(190, 90, 10, 10); // changes every frame
   if (frameCount == 120) exit();
 }

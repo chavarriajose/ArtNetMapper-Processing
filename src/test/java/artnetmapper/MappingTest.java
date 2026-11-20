@@ -45,9 +45,12 @@ class MappingTest {
   @Test
   void every16WiringIsAPermutation() {
     int cols = 5, rows = 4;
-    for (int w = 0; w <= 1; w++)
-      for (int c = 0; c <= 3; c++)
-        for (int o = 0; o <= 1; o++) {
+    int[] wirings = {ArtNetMapper.PROGRESSIVE, ArtNetMapper.SERPENTINE};
+    int[] corners = {ArtNetMapper.TOP_LEFT, ArtNetMapper.TOP_RIGHT, ArtNetMapper.BOTTOM_LEFT, ArtNetMapper.BOTTOM_RIGHT};
+    int[] orders = {ArtNetMapper.ROWS, ArtNetMapper.COLUMNS};
+    for (int w : wirings)
+      for (int c : corners)
+        for (int o : orders) {
           boolean[] seen = new boolean[cols * rows];
           for (int i = 0; i < cols * rows; i++) {
             int[] p = cell(i, cols, rows, w, c, o);
@@ -61,35 +64,44 @@ class MappingTest {
   @Test
   void rectPlacesCentersAndRotateAboutCenter() {
     ArtNetMapper m = mapper();
-    Fixture mx = m.matrix(m.type("r, g, b"), 1, 2, 2).rect(0, 0, 100, 100);
-    assertEquals(25, mx.x(0), 1e-3);
-    assertEquals(25, mx.y(0), 1e-3);
-    assertEquals(75, mx.x(1), 1e-3);
+    Fixture mx = m.matrix(3, 1, 2, 2).rect(0, 0, 100, 100);
+    assertEquals(25, mx.pixel(0).x(), 1e-3);
+    assertEquals(25, mx.pixel(0).y(), 1e-3);
+    assertEquals(75, mx.pixel(1).x(), 1e-3);
     mx.rotate((float) Math.PI); // 180 degrees: element 0 moves to bottom-right
-    assertEquals(75, mx.x(0), 1e-3);
-    assertEquals(75, mx.y(0), 1e-3);
+    assertEquals(75, mx.pixel(0).x(), 1e-3);
+    assertEquals(75, mx.pixel(0).y(), 1e-3);
   }
 
   @Test
-  void samplingWritesChannelsWithWhiteGammaAndConstants() {
+  void serpentineMatrixSamplesInDmxOrder() {
     ArtNetMapper m = mapper().gamma(1f);
-    FixtureType par = m.type("dim=255, r, g, b, w, strobe=0");
-    m.fixture(par, 1).at(0, 0);
-    m.fixture(m.type("r, g, b, w"), 7).at(1, 0).whiteMode(false);
-    int[] pixels = {0xFFC86432, 0xFFC86432}; // r200 g100 b50
-    m.sample(pixels, 2, 1, 1);
-    int[] ch = m.channels(0);
-    assertArrayEquals(new int[] {255, 150, 50, 0, 50, 0}, java.util.Arrays.copyOfRange(ch, 0, 6));
-    assertArrayEquals(new int[] {200, 100, 50, 0}, java.util.Arrays.copyOfRange(ch, 6, 10));
+    m.matrix(3, 1, 2, 2).rect(0, 0, 2, 2).colorChannels(0, 1, 2)
+     .wiring(ArtNetMapper.SERPENTINE, ArtNetMapper.TOP_LEFT, ArtNetMapper.ROWS);
+    // TL red, TR green, BL blue, BR white
+    int[] px = {0xFFFF0000, 0xFF00FF00, 0xFF0000FF, 0xFFFFFFFF};
+    m.sample(px, 2, 2, 1);
+    // DMX order: TL, TR, BR, BL
+    assertArrayEquals(new int[] {255, 0, 0, 0, 255, 0, 255, 255, 255, 0, 0, 255},
+        java.util.Arrays.copyOf(m.getUniverse(0), 12));
+  }
+
+  @Test
+  void swappedWiringArgumentsAreRejected() {
+    ArtNetMapper m = mapper();
+    Fixture mx = m.matrix(3, 1, 2, 2).rect(0, 0, 10, 10);
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+        () -> mx.wiring(ArtNetMapper.TOP_LEFT, ArtNetMapper.SERPENTINE, ArtNetMapper.ROWS));
+    assertTrue(e.getMessage().contains("got 10"), e.getMessage());
   }
 
   @Test
   void perFixtureGammaOverridesGlobal() {
     ArtNetMapper m = mapper(); // global 2.5
-    m.fixture(m.type("r, g, b"), 1).at(0, 0).gamma(1f);
-    m.fixture(m.type("r, g, b"), 4).at(0, 0);
+    m.fixture(3, 1).setPos(0, 0).colorChannels(0, 1, 2).gamma(1f);
+    m.fixture(3, 4).setPos(0, 0).colorChannels(0, 1, 2);
     m.sample(new int[] {0xFF808080}, 1, 1, 1);
-    int[] ch = m.channels(0);
+    int[] ch = m.getUniverse(0);
     assertEquals(128, ch[0]);
     assertEquals(ColorMath.gammaTable(2.5f)[128], ch[3]);
   }

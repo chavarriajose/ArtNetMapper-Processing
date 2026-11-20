@@ -1,5 +1,9 @@
-// A virtual 8x8 RGB matrix, wired serpentine from the top-left corner,
-// rotated 15 degrees. Plasma pattern underneath.
+// Matrix: an 8x8 RGB matrix (3 channels per pixel) wired serpentine from the
+// top-left corner, rotated 15 degrees, over a plasma pattern.
+//
+// Set your matrix to DMX address 1 (universe 0), or change the numbers below.
+// Argument order: matrix(channelsPerPixel, address, cols, rows)
+//             or  matrix(channelsPerPixel, universe, address, cols, rows)
 
 import artnetmapper.*;
 
@@ -8,13 +12,15 @@ ArtNetMapper dmx;
 void setup() {
   size(500, 500);
   pixelDensity(1);   // this sketch writes pixels[] directly, one entry per sketch pixel
-  String[] nodes = ArtNetMapper.list();
-  dmx = new ArtNetMapper(this, nodes[0]);          // no node? type an IP, e.g. "2.0.0.1"
-  dmx.matrix(dmx.type("r, g, b"), 2, 1, 8, 8)        // universe 2, channel 1
-     .rect(130, 130, 240, 240)
-     .rotate(radians(15))
-     .wiring(ArtNetMapper.SERPENTINE, ArtNetMapper.TOP_LEFT, ArtNetMapper.ROWS)
-     .sampleRadius(3);
+  String[] nodes = ArtNetMapper.list();           // prints the nodes found
+  dmx = new ArtNetMapper(this, nodes[0]);          // no node? use "127.0.0.1"
+
+  Fixture m = dmx.matrix(3, 1, 8, 8);              // 3 channels per pixel, address 1, 8x8
+  m.rect(130, 130, 240, 240);
+  m.rotate(radians(15));
+  m.wiring(ArtNetMapper.SERPENTINE, ArtNetMapper.TOP_LEFT, ArtNetMapper.ROWS);
+  m.colorChannels(0, 1, 2);
+  m.sampleRadius(3);                               // average a small area per pixel
   colorMode(HSB, 1);
 }
 
