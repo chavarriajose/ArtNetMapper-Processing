@@ -1,0 +1,59 @@
+plugins {
+    id 'java'
+}
+
+group = 'artnetmapper'
+version = '0.1.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compileOnly files(processingCore)
+    testImplementation files(processingCore)
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.4'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 17
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xlint:all', '-Xlint:-serial', '-Xlint:-this-escape']
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events 'failed'
+        exceptionFormat 'full'
+        showStandardStreams = false
+    }
+}
+
+jar {
+    archiveBaseName = 'ArtNetMapper'
+    archiveVersion = ''
+}
+
+// Processing library folder layout:
+// ArtNetMapper/{library.properties, library/ArtNetMapper.jar, examples/, src/}
+tasks.register('buildLibrary', Sync) {
+    group = 'processing'
+    description = 'Assembles the Processing library folder in build/library/ArtNetMapper.'
+    dependsOn jar
+    into layout.buildDirectory.dir('library/ArtNetMapper')
+    from('library.properties')
+    from('LICENSE')
+    into('library') { from jar.archiveFile }
+    into('examples') { from 'examples' }
+    into('src') { from 'src/main/java' }
+}
+
+tasks.register('installLibrary', Sync) {
+    group = 'processing'
+    description = 'Copies the library into the Processing sketchbook libraries folder.'
+    dependsOn 'buildLibrary'
+    from layout.buildDirectory.dir('library/ArtNetMapper')
+    into "${sketchbookLibraries}/ArtNetMapper"
+}
