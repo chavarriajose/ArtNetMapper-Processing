@@ -310,6 +310,10 @@ DESIGN.md             the agreed design and its decisions
 EVALUATION.md         what each version taught us
 ```
 
+## Credits
+
+Created by Jose Chavarría, 2026. Partially developed with the help of AI (Claude, by Anthropic).
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
