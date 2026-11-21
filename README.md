@@ -50,19 +50,14 @@ void draw() {
 
 ## How it works
 
-Every frame, after your `draw()` finishes, the library reads the canvas at each
-fixture's position, works out every channel's value, and hands the result to a
-background thread. That thread sends it to the node at up to 44 frames per second.
+Every frame, after your `draw()` finishes, the library:
 
-```mermaid
-flowchart LR
-    A["your draw()"] --> B["read the canvas<br/>at each fixture's position"]
-    B --> C["work out each channel<br/>(canvas color or setVal)"]
-    C --> D["universe buffers<br/>512 values each"]
-    D --> E["send thread<br/>max 44 fps, resend every 1 s"]
-    E -- "UDP, Art-Net" --> F["Art-Net node<br/>e.g. 2.0.0.1"]
-    F -- "DMX cable" --> G["lights"]
-```
+1. reads the canvas at each fixture's position,
+2. works out every channel's value (canvas color, or a value you set with `setVal`),
+3. writes them into one 512-value buffer per universe,
+4. and a background thread sends those buffers to the Art-Net node, at up to 44
+   frames per second. The node turns them into DMX for the lights.
+
 
 - Markers are drawn on the canvas at each fixture's position (`showLocations`), after
   the colors are read, so they never end up in the light.
@@ -84,21 +79,15 @@ ArtNetMapper: found 1 Art-Net node:
 It looks for nodes in two ways, because some USB nodes never answer the standard
 Art-Net "who's there?" message (ArtPoll):
 
-```mermaid
-flowchart TD
-    L["ArtNetMapper.list()"] --> P["ArtPoll: ask every network<br/>'which Art-Net nodes are there?'"]
-    L --> S["Interface scan: look for small<br/>USB-style links with one device on them"]
-    P --> R1["nodes that answer<br/>(answered ArtPoll)"]
-    S --> R2["the one device on that link, if it answers ping<br/>(found by interface scan)"]
-    R1 --> OUT["numbered list: nodes[0], nodes[1], ..."]
-    R2 --> OUT
-```
+- **ArtPoll**: asks every network which Art-Net nodes are there. Nodes that answer
+  are listed as `(answered ArtPoll)`.
+- **Interface scan**: looks for small USB-style network links with a single device
+  on them, and lists that device if it answers a ping, as `(found by interface scan)`.
+
 
 - Wi-Fi and office networks are never swept, so phones and printers don't show up.
 - With no node, the list is empty and `nodes[0]` fails, as with `Serial.list()[0]`.
   To work without hardware, pass an IP yourself: `new ArtNetMapper(this, "127.0.0.1")`.
-- If the node's USB link disappears (cable bumped), sending pauses and resumes on
-  its own when it's back.
 
 ---
 
@@ -116,12 +105,10 @@ Two different numbers are involved, and they count differently:
 
 An 8-channel par at DMX address 1, as listed in its manual:
 
-```
-DMX address    1        2      3       4      5       6        7      8
-               │        │      │       │      │       │        │      │
-channel        0        1      2       3      4       5        6      7
-             dimmer    red   green   blue   white   strobe    mode   speed
-```
+| DMX address | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| **channel** | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+| does | dimmer | red | green | blue | white | strobe | mode | speed |
 
 ```java
 Fixture par = dmx.fixture(8, 1);       // 8 channels, starting at DMX address 1
@@ -142,12 +129,10 @@ each with the same channels. `strip(channelsPerPixel, address, pixels)`:
 Fixture bar = dmx.strip(3, 1, 4);      // 4 pixels x 3 channels (RGB), from DMX address 1
 ```
 
-```
-DMX address    1  2  3 │ 4  5  6 │ 7  8  9 │ 10 11 12
-channel        0  1  2 │ 0  1  2 │ 0  1  2 │ 0  1  2
-               r  g  b │ r  g  b │ r  g  b │ r  g  b
-               pixel 0 │ pixel 1 │ pixel 2 │ pixel 3
-```
+| | pixel 0 | pixel 1 | pixel 2 | pixel 3 |
+|---|---|---|---|---|
+| DMX addresses | 1-3 | 4-6 | 7-9 | 10-12 |
+| channels | 0, 1, 2 | 0, 1, 2 | 0, 1, 2 | 0, 1, 2 |
 
 `bar.setVal(0, 255)` sets channel 0 on every pixel; `bar.pixel(2).setVal(0, 255)`
 sets it on pixel 2 only.
@@ -178,22 +163,11 @@ ArtNetMapper: added strip, 4 pixels x 3 channels, universe 0, DMX 1-12
 Positions are in sketch pixels. A fixture that only uses `setVal()` doesn't need a
 position.
 
-```
- setPos(x, y)               line(x1, y1, x2, y2)             rect(x, y, w, h)
- a par: one point           a strip: pixel 0 at the          a matrix: one pixel in the
-                            first point, the last pixel      center of each cell
-                            at the second point
-
-      ┌──────────┐            ┌──────────────────────┐         ┌───────────────────┐
-      │          │            │                      │         │  (x,y)            │
-      │    ●     │            │  0   1   2   3   4   │         │   ┌───┬───┬───┐   │
-      │  (x,y)   │            │  ●───●───●───●───●   │         │   │ ● │ ● │ ● │   │
-      │          │            │ x1,y1         x2,y2  │         │   ├───┼───┼───┤ h │
-      └──────────┘            └──────────────────────┘         │   │ ● │ ● │ ● │   │
-                                                               │   └───┴───┴───┘   │
-                                                               │         w         │
-                                                               └───────────────────┘
-```
+| Method | For | Where the pixels go |
+|---|---|---|
+| `setPos(x, y)` | a par | at the point (x, y) |
+| `line(x1, y1, x2, y2)` | a strip | evenly spread: pixel 0 at (x1, y1), the last pixel at (x2, y2) |
+| `rect(x, y, w, h)` | a matrix | one pixel in the center of each cell of a grid filling the rectangle |
 
 - `rotate(radians(15))` turns a matrix around the center of its rect.
 - `sampleRadius(r)` averages a square of radius `r` around each position, instead
@@ -205,16 +179,10 @@ position.
 Which cell is pixel 0, 1, 2... depends on how the matrix is wired:
 `wiring(wiring, corner, order)`.
 
-```
- PROGRESSIVE, TOP_LEFT, ROWS       SERPENTINE, TOP_LEFT, ROWS        SERPENTINE, TOP_LEFT, COLUMNS
- (default)                         every other row runs back         every other column runs back
-
-   0 → 1 → 2 → 3                     0 → 1 → 2 → 3                     0   5 ← 6   11
-                                                 ↓                     ↓   ↑   ↓   ↑
-   4 → 5 → 6 → 7                     7 ← 6 ← 5 ← 4                     1   4   7   10
-                                     ↓                                 ↓   ↑   ↓   ↑
-   8 → 9 → 10 → 11                   8 → 9 → 10 → 11                   2 → 3   8 → 9
-```
+- `PROGRESSIVE` (default): every row runs in the same direction.
+- `SERPENTINE`: every other row runs back the other way.
+- `ROWS` (default) or `COLUMNS`: whether pixel 1 is next to pixel 0 along a row or
+  along a column.
 
 Corners: `TOP_LEFT`, `TOP_RIGHT`, `BOTTOM_LEFT`, `BOTTOM_RIGHT` (where pixel 0 is).
 
@@ -222,21 +190,16 @@ Corners: `TOP_LEFT`, `TOP_RIGHT`, `BOTTOM_LEFT`, `BOTTOM_RIGHT` (where pixel 0 i
 
 ## Where each channel's value comes from
 
-Every channel of every pixel is worked out like this, once per frame:
+Every channel of every pixel is worked out once per frame:
 
-```mermaid
-flowchart TD
-    CH["a channel of a pixel"] --> Q1{"linked to the canvas<br/>with colorChannels()?"}
-    Q1 -- no --> MAN["its setVal() value<br/>(0 if never set)"]
-    Q1 -- yes --> Q2{"set by hand with<br/>setVal / setVals?"}
-    Q2 -- "yes, until release()" --> MAN
-    Q2 -- no --> PIPE["canvas color"]
-    PIPE --> W["white extraction<br/>(4 color channels only)"]
-    W --> G["gamma (default 2.5)"]
-    G --> B["brightness"]
-    B --> OUT["value sent"]
-    MAN --> RAW["sent exactly as written:<br/>no gamma, no brightness"]
-```
+- **Not linked to the canvas**: its `setVal()` value (0 if never set).
+- **Linked with `colorChannels()` and set by hand**: the hand-set value, until
+  `release()`.
+- **Linked and not set by hand**: the canvas color, after white extraction, gamma
+  and brightness.
+
+Values set by hand are sent exactly as written, with no gamma or brightness.
+
 
 - **colorChannels(r, g, b)** or **(r, g, b, w)** says which channels follow the
   canvas color. Give 3 numbers for RGB, or 4 for RGBW.
@@ -258,15 +221,10 @@ void mouseReleased() { par.release(); }                 // back to the canvas
 
 ## Sending
 
-```mermaid
-stateDiagram-v2
-    [*] --> Connected: the node's network is up
-    [*] --> Routed: IP not on any connected network
-    Connected --> Paused: network disappears (USB unplugged)
-    Paused --> Connected: network back
-    Routed --> Routed: keeps sending anyway
-    note right of Paused: nothing sent, so packets never<br/>leak out through Wi-Fi
-```
+- If the node's network link disappears (USB unplugged), sending pauses so packets
+  never go out through Wi-Fi, and resumes when it's back. An IP that isn't on any
+  connected network is sent to anyway.
+
 
 - Frames are sent when a channel changes, at most `maxRate` times per second
   (default 44, the most DMX can show). An unchanged frame is resent once a second,
